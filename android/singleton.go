@@ -33,15 +33,7 @@ type SingletonContext interface {
 	// Allows generating build actions for `referer` based on the metadata for `name` deferred until the singleton context.
 	ModuleVariantsFromName(referer Module, name string) []Module
 
-	// ModuleProvider returns the value, if any, for the provider for a module.  If the value for the
-	// provider was not set it returns the zero value of the type of the provider, which means the
-	// return value can always be type-asserted to the type of the provider.  The return value should
-	// always be considered read-only.  It panics if called before the appropriate mutator or
-	// GenerateBuildActions pass for the provider on the module.
-	ModuleProvider(module blueprint.Module, provider blueprint.ProviderKey) interface{}
-
-	// ModuleHasProvider returns true if the provider for the given module has been set.
-	ModuleHasProvider(module blueprint.Module, provider blueprint.ProviderKey) bool
+	moduleProvider(module blueprint.Module, provider blueprint.AnyProviderKey) (any, bool)
 
 	ModuleErrorf(module blueprint.Module, format string, args ...interface{})
 	Errorf(format string, args ...interface{})
@@ -282,3 +274,8 @@ func (s *singletonContextAdaptor) ModuleVariantsFromName(referer Module, name st
 	}
 	return result
 }
+
+func (s *singletonContextAdaptor) moduleProvider(module blueprint.Module, provider blueprint.AnyProviderKey) (any, bool) {
+	return s.SingletonContext.ModuleProvider(module, provider)
+}
+
