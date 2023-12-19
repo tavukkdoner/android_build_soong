@@ -112,24 +112,6 @@ func optionalVariable(prefix string, value string) string {
 	return sb.String()
 }
 
-// Provider published by aconfig_value_set
-type DeclarationsProviderData struct {
-	Package                     string
-	Container                   string
-	IntermediateCacheOutputPath android.WritablePath
-	IntermediateDumpOutputPath  android.WritablePath
-}
-
-var DeclarationsProviderKey = blueprint.NewProvider(DeclarationsProviderData{})
-
-// This is used to collect the aconfig declarations info on the transitive closure,
-// the data is keyed on the container.
-type TransitiveDeclarationsInfo struct {
-	AconfigFiles map[string]android.Paths
-}
-
-var TransitiveDeclarationsInfoProvider = blueprint.NewProvider(TransitiveDeclarationsInfo{})
-
 func (module *DeclarationsModule) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	// Get the values that came from the global RELEASE_ACONFIG_VALUE_SETS flag
 	valuesFiles := make([]android.Path, 0)
@@ -177,7 +159,7 @@ func (module *DeclarationsModule) GenerateAndroidBuildActions(ctx android.Module
 		Description: "aconfig_text",
 	})
 
-	ctx.SetProvider(DeclarationsProviderKey, DeclarationsProviderData{
+	android.SetProvider(ctx, android.AconfigDeclarationsProviderKey, android.AconfigDeclarationsProviderData{
 		Package:                     module.properties.Package,
 		Container:                   module.properties.Container,
 		IntermediateCacheOutputPath: intermediateCacheFilePath,
@@ -185,48 +167,18 @@ func (module *DeclarationsModule) GenerateAndroidBuildActions(ctx android.Module
 	})
 
 }
-func CollectDependencyAconfigFiles(ctx android.ModuleContext, mergedAconfigFiles *map[string]android.Paths) {
-	if *mergedAconfigFiles == nil {
-		*mergedAconfigFiles = make(map[string]android.Paths)
-	}
-	ctx.VisitDirectDeps(func(module android.Module) {
-		if dep := ctx.OtherModuleProvider(module, DeclarationsProviderKey).(DeclarationsProviderData); dep.IntermediateCacheOutputPath != nil {
-			(*mergedAconfigFiles)[dep.Container] = append((*mergedAconfigFiles)[dep.Container], dep.IntermediateCacheOutputPath)
-			return
-		}
-		if dep := ctx.OtherModuleProvider(module, TransitiveDeclarationsInfoProvider).(TransitiveDeclarationsInfo); len(dep.AconfigFiles) > 0 {
-			for container, v := range dep.AconfigFiles {
-				(*mergedAconfigFiles)[container] = append((*mergedAconfigFiles)[container], v...)
-			}
-		}
-	})
 
-	for container, aconfigFiles := range *mergedAconfigFiles {
-		(*mergedAconfigFiles)[container] = mergeAconfigFiles(ctx, aconfigFiles)
+func SetAconfigFileMkEntries(m *android.ModuleBase, entries *android.AndroidMkEntries, aconfigFiles map[string]android.Paths) {
+	// TODO(b/311155208): The default container here should be system.
+	container := ""
+
+	if m.SocSpecific() {
+		container = "vendor"
+	} else if m.ProductSpecific() {
+		container = "product"
+	} else if m.SystemExtSpecific() {
+		container = "system_ext"
 	}
 
-	ctx.SetProvider(TransitiveDeclarationsInfoProvider, TransitiveDeclarationsInfo{
-		AconfigFiles: *mergedAconfigFiles,
-	})
-}
-
-func mergeAconfigFiles(ctx android.ModuleContext, inputs android.Paths) android.Paths {
-	inputs = android.LastUniquePaths(inputs)
-	if len(inputs) == 1 {
-		return android.Paths{inputs[0]}
-	}
-
-	output := android.PathForModuleOut(ctx, "aconfig_merged.pb")
-
-	ctx.Build(pctx, android.BuildParams{
-		Rule:        mergeAconfigFilesRule,
-		Description: "merge aconfig files",
-		Inputs:      inputs,
-		Output:      output,
-		Args: map[string]string{
-			"flags": android.JoinWithPrefix(inputs.Strings(), "--cache "),
-		},
-	})
-
-	return android.Paths{output}
+	entries.SetPaths("LOCAL_ACONFIG_FILES", aconfigFiles[container])
 }

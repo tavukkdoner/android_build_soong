@@ -23,7 +23,6 @@ import (
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 
-	"android/soong/aconfig"
 	"android/soong/android"
 	"android/soong/cc"
 	cc_config "android/soong/cc/config"
@@ -1006,7 +1005,7 @@ func (mod *Module) GenerateAndroidBuildActions(actx android.ModuleContext) {
 		ctx.SetProvider(testing.TestModuleProviderKey, testing.TestModuleProviderData{})
 	}
 
-	aconfig.CollectDependencyAconfigFiles(ctx, &mod.mergedAconfigFiles)
+	android.CollectDependencyAconfigFiles(ctx, &mod.mergedAconfigFiles)
 }
 
 func (mod *Module) deps(ctx DepsContext) Deps {

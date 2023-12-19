@@ -28,7 +28,6 @@ import (
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 
-	"android/soong/aconfig"
 	"android/soong/aidl_library"
 	"android/soong/android"
 	"android/soong/cc/config"
@@ -2135,7 +2134,7 @@ func (c *Module) GenerateAndroidBuildActions(actx android.ModuleContext) {
 	}
 	ctx.SetProvider(blueprint.SrcsFileProviderKey, blueprint.SrcsFileProviderData{SrcPaths: deps.GeneratedSources.Strings()})
 
-	aconfig.CollectDependencyAconfigFiles(ctx, &c.mergedAconfigFiles)
+	android.CollectDependencyAconfigFiles(ctx, &c.mergedAconfigFiles)
 
 	c.maybeInstall(ctx, apexInfo)
 }
