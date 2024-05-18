@@ -113,30 +113,16 @@ func (lto *lto) flags(ctx BaseModuleContext, flags Flags) Flags {
 	}
 	if lto.Properties.LtoEnabled {
 		ltoCFlags := []string{"-flto=thin", "-fsplit-lto-unit"}
-		var ltoCOnlyFlags []string
 		var ltoLdFlags []string
 
-		// Do not perform costly LTO optimizations for Eng builds.
-		if Bool(lto.Properties.Lto_O0) || ctx.Config().Eng() {
+		// The module did not explicitly turn on LTO. Only leverage LTO's
+		// better dead code elimination and CFG simplification, but do
+		// not perform costly optimizations for a balance between compile
+		// time, binary size and performance.
+		// Apply the same for Eng builds as well.
+		if !lto.ThinLTO() || ctx.Config().Eng() {
 			ltoLdFlags = append(ltoLdFlags, "-Wl,--lto-O0")
-		} else {
-			ltoLdFlags = append(ltoLdFlags,"-Wl,--lto-O3")
-			ltoCOnlyFlags = append(ltoCOnlyFlags, "-O3")
 		}
-
-		// Enable Polly globally
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly")
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly-parallel")
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly-ast-use-context")
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly-invariant-load-hoisting")
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly-run-inliner")
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly-loopfusion-greedy=1")
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly-reschedule=1")
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly-postopts=1")
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly-omp-backend=LLVM")
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly-scheduling=dynamic")
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly-scheduling-chunksize=1")
-		ltoCOnlyFlags = append(ltoCOnlyFlags, "-mllvm -polly-vectorizer=stripmine")
 
 		if Bool(lto.Properties.Whole_program_vtables) {
 			ltoCFlags = append(ltoCFlags, "-fwhole-program-vtables")
@@ -181,7 +167,6 @@ func (lto *lto) flags(ctx BaseModuleContext, flags Flags) Flags {
 		flags.Local.AsFlags = append(flags.Local.AsFlags, ltoCFlags...)
 		flags.Local.LdFlags = append(flags.Local.LdFlags, ltoCFlags...)
 		flags.Local.LdFlags = append(flags.Local.LdFlags, ltoLdFlags...)
-		flags.Local.CFlags = append(flags.Local.CFlags, ltoCOnlyFlags...)
 	}
 	return flags
 }
